@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CMatrix from './CMatrix';
 import WarpEffect from './WarpEffect';
 
@@ -8,7 +8,9 @@ const LockScreen = ({ onUnlock }) => {
     const [isError, setIsError] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [lockoutTime, setLockoutTime] = useState(null);
+    const [isSystemOut, setIsSystemOut] = useState(false);
     const [isLockedOut, setIsLockedOut] = useState(false);
+    const inputRef = useRef(null);
     const correctPassword = '3468';
 
     const checkPassword = useCallback(() => {
@@ -34,13 +36,16 @@ const LockScreen = ({ onUnlock }) => {
             }, 1500);
         }
     }, [password, onUnlock, correctPassword, lockoutTime]);
-
+    
     useEffect(() => {
         if (lockoutTime === null) return;
 
         if (lockoutTime === 0) {
+            setMessage('System Out');
             setIsLockedOut(true);
-            setMessage('SYSTEM LOCKED');
+            setTimeout(() => {
+                setIsSystemOut(true);
+            }, 500); // Show "System Out" for a moment before black screen
             return;
         }
 
@@ -49,42 +54,43 @@ const LockScreen = ({ onUnlock }) => {
         }, 1000);
 
         return () => clearInterval(timerId);
-    }, [lockoutTime]);
+    }, [lockoutTime, isLockedOut]);
 
     useEffect(() => {
-        const handleKeyPress = (e) => {
-            if (isLockedOut || message === 'ACCESS GRANTED') {
-                return;
-            }
-
-            if (e.key >= '0' && e.key <= '9' && password.length < 4) {
-                setPassword(prev => prev + e.key);
-            } else if (e.key === 'Backspace') {
-                setPassword(prev => prev.slice(0, -1));
-            } else if (e.key === 'Enter' && password.length === 4) {
-                checkPassword();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyPress);
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyPress);
-        };
-    }, [password, message, checkPassword, isLockedOut, isError]);
+        // Focus the invisible input on mount and when it's not locked out
+        if (!isLockedOut && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [isLockedOut]);
 
     useEffect(() => {
         if (password.length === 4) {
             checkPassword();
         }
     }, [password, checkPassword]);
+    
+    const handleContainerClick = () => {
+        if (!isLockedOut && inputRef.current) {
+            inputRef.current.focus();
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        // Allow only numbers
+        if (/^[0-9]*$/.test(value) && value.length <= 4) {
+            setPassword(value);
+        }
+    };
 
     return (
-        <div className="lock-screen-container">
+        <div className="lock-screen-container" onClick={handleContainerClick}>
+            {isSystemOut && <div className="screen-off-effect" />}
             {isUnlocking && <WarpEffect />}
-            {isLockedOut && <div className="screen-off-effect" />}
             {isError && <CMatrix />}
-            <div className={`terminal ${isError ? 'terminal-error' : ''}`}
+            {!isSystemOut && (
+                <div
+                    className={`terminal ${isError ? 'terminal-error' : ''}`}
                  data-text={isError ? `Status: ${message}` : ''}>
                 <div className="terminal-header">
                     <span>C:\\WINDOWS\\system32\\cmd.exe</span>
@@ -106,6 +112,16 @@ const LockScreen = ({ onUnlock }) => {
                     {isLockedOut && <p className="lockout-message">!! CRITICAL FAILURE !! SYSTEM ACCESS PERMANENTLY DENIED.</p>}
                     <div className="prompt">
                         <span>&gt; </span>
+                        <input
+                            ref={inputRef}
+                            type="tel" // Use "tel" for a numeric keypad on mobile
+                            className="hidden-input"
+                            value={password}
+                            onChange={handleInputChange}
+                            onBlur={() => inputRef.current && inputRef.current.focus()} // Re-focus on blur
+                            autoFocus
+                            maxLength="4"
+                        />
                         <span className="password-input">{password.padEnd(4, '_')}</span>
                     </div>
                     <p className={`status-message ${message.includes('DENIED') ? 'denied' : ''} ${message.includes('GRANTED') ? 'granted' : ''}`}>
@@ -113,6 +129,7 @@ const LockScreen = ({ onUnlock }) => {
                     </p>
                 </div>
             </div>
+            )}
         </div>
     );
 };
