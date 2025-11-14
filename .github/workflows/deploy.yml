@@ -9,6 +9,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write # 액션이 저장소에 'write'(push) 할 수 있도록 허용
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
