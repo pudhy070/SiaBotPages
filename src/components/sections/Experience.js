@@ -6,7 +6,7 @@ const Experience = () => {
             <h2>개발 경력</h2>
             <div className="section-item">
                 <div className="item-header">
-                    <h3>ITS 개발자</h3>
+                    <h3>IT 통신 기술지원/유지보수</h3>
                     <span className="period">2년</span>
                 </div>
                 <p>
